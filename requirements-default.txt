@@ -1,2 +1,5 @@
 dvc>=2.7.0
 GitPython>=3.1.18
+matplotlib>=3.3.1
+networkx>=2.5
+ruamel.yaml>=0.17.0
