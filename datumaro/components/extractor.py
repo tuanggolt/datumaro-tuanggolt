@@ -3,7 +3,10 @@
 # SPDX-License-Identifier: MIT
 
 from glob import iglob
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import (
+    Any, Callable, Container, Dict, Iterable, List, NewType, NoReturn, Optional,
+    Union,
+)
 import os
 import os.path as osp
 
@@ -339,3 +342,35 @@ class ItemTransform(Transform):
             item = self.transform_item(item)
             if item is not None:
                 yield item
+
+
+ErrorAction = NewType('ErrorAction', str)
+
+class ErrorPolicy:
+    def report_error(self, error: Exception,
+            supported_actions: Container[ErrorAction]) \
+            -> Union[ErrorAction, NoReturn]:
+        self._add(error)
+
+        if self.is_critical(error):
+            self.fail()
+
+        assert supported_actions, \
+            "If error reporting is supported, at " \
+            "least one option to recover must be provided"
+        action = self.get_action(error, supported_actions)
+        assert action in supported_actions
+        return action
+
+    def _add(self, error) -> None:
+        pass
+
+    def get_action(self, error: Exception,
+            supported_actions: Container[ErrorAction]) -> ErrorAction:
+        return next(iter(supported_actions))
+
+    def is_critical(self, error: Exception) -> bool:
+        return True
+
+    def fail(self) -> NoReturn:
+        pass

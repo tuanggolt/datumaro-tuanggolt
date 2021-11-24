@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 from collections import OrderedDict
+from typing import Optional
 import json
 import logging as log
 import os.path as osp
@@ -14,8 +15,9 @@ from datumaro.components.annotation import (
     AnnotationType, Bbox, Caption, CompiledMask, Label, LabelCategories, Mask,
     Points, PointsCategories, Polygon, RleMask,
 )
+from datumaro.components.errors import DatasetImportError, UndefinedLabel
 from datumaro.components.extractor import (
-    DEFAULT_SUBSET_NAME, DatasetItem, SourceExtractor,
+    DEFAULT_SUBSET_NAME, DatasetItem, ErrorPolicy, SourceExtractor,
 )
 from datumaro.components.media import Image
 from datumaro.util.image import lazy_image, load_image
@@ -25,12 +27,30 @@ from datumaro.util.os_util import suppress_output
 from .format import CocoPath, CocoTask
 
 
+class SkipAnnotation(DatasetImportError):
+    pass
+
+class SkipItem(DatasetImportError):
+    pass
+
+class AutoLabelCategories(LabelCategories):
+    def __getitem__(self, idx):
+        v = self.items.get(idx, None)
+        if v is None:
+            while len(self) < idx:
+                self.add(f'_dummy{len(self)}')
+            v = self.items[idx]
+        return v
+
 class _CocoExtractor(SourceExtractor):
     def __init__(self, path, task, *,
         merge_instance_polygons=False,
         subset=None,
         keep_original_category_ids=False,
+        import_context=None
     ):
+        self._import_ctx: Optional[ErrorPolicy] = import_context
+
         assert osp.isfile(path), path
 
         if not subset:
@@ -66,10 +86,19 @@ class _CocoExtractor(SourceExtractor):
                 panoptic_images).values())
         else:
             loader = self._make_subset_loader(path)
-            self._load_categories(
-                loader,
-                keep_original_ids=keep_original_category_ids,
-            )
+
+            try:
+                self._load_categories(
+                    loader,
+                    keep_original_ids=keep_original_category_ids,
+                )
+            except Exception as e:
+                action = self._import_ctx.report_error(e, ['ignore'])
+                if action == 'ignore':
+                    self._categories[AnnotationType.label] = AutoLabelCategories()
+                else:
+                    assert False, f"Unexpected action {action}"
+
             self._items = list(self._load_items(loader).values())
 
     @staticmethod
@@ -144,23 +173,45 @@ class _CocoExtractor(SourceExtractor):
         items = OrderedDict()
 
         for img_id in loader.getImgIds():
-            image_info = loader.loadImgs(img_id)[0]
-            image_path = osp.join(self._images_dir, image_info['file_name'])
-            image_size = (image_info.get('height'), image_info.get('width'))
-            if all(image_size):
-                image_size = (int(image_size[0]), int(image_size[1]))
-            else:
-                image_size = None
-            image = Image(path=image_path, size=image_size)
+            try:
+                image_info = loader.loadImgs(img_id)[0]
+                image_path = osp.join(self._images_dir, image_info['file_name'])
+                image_size = (image_info.get('height'), image_info.get('width'))
+                if all(image_size):
+                    image_size = (int(image_size[0]), int(image_size[1]))
+                else:
+                    image_size = None
+                image = Image(path=image_path, size=image_size)
 
-            anns = loader.getAnnIds(imgIds=img_id)
-            anns = loader.loadAnns(anns)
-            anns = sum((self._load_annotations(a, image_info) for a in anns), [])
+                anns = []
+                for a in loader.loadAnns(loader.getAnnIds(imgIds=img_id)):
+                    try:
+                        anns.extend(self._load_annotations(a, image_info))
+                    except SkipAnnotation:
+                        continue
+                    except SkipItem:
+                        raise
+                    except Exception as e:
+                        action = self._import_ctx.report_error(e, ['skip_item', 'skip_ann'])
+                        if action == 'skip_ann':
+                            continue
+                        elif action == 'skip_item':
+                            raise SkipItem() from e
+                        else:
+                            assert False
 
-            items[img_id] = DatasetItem(
-                id=osp.splitext(image_info['file_name'])[0],
-                subset=self._subset, image=image, annotations=anns,
-                attributes={'id': img_id})
+                items[img_id] = DatasetItem(
+                    id=osp.splitext(image_info['file_name'])[0],
+                    subset=self._subset, image=image, annotations=anns,
+                    attributes={'id': img_id})
+            except SkipItem:
+                continue
+            except Exception as e:
+                action = self._import_ctx.report_error(e, ['skip_item'])
+                if action == 'skip_item':
+                    continue
+                else:
+                    assert False
 
         return items
 
@@ -224,15 +275,31 @@ class _CocoExtractor(SourceExtractor):
             except Exception as e:
                 log.debug("item #%s: failed to read annotation attributes: %s",
                     image_info['id'], e)
+
         if 'score' in ann:
             attributes['score'] = ann['score']
 
         group = ann_id # make sure all tasks' annotations are merged
 
         if self._task in [CocoTask.instances, CocoTask.person_keypoints,
-            CocoTask.stuff]:
+                CocoTask.stuff]:
             x, y, w, h = ann['bbox']
-            label_id = self._get_label_id(ann)
+
+            try:
+                label_id = self._get_label_id(ann)
+            except KeyError as e:
+                action = self._import_ctx.report_error(
+                    UndefinedLabel(None, None, None, str(e)),
+                    ['add_label', 'skip_ann', 'skip_item'])
+                if action == 'add_label':
+                    label_id = self._categories[AnnotationType.label].add(
+                        f'_dummy{len(self._categories[AnnotationType.label])}')
+                elif action == 'skip_ann':
+                    raise SkipAnnotation() from e
+                elif action =='skip_item':
+                    raise SkipItem() from e
+                else:
+                    assert False
 
             is_crowd = bool(ann['iscrowd'])
             attributes['is_crowd'] = is_crowd

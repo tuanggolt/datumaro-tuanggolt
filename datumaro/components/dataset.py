@@ -24,7 +24,7 @@ from datumaro.components.errors import (
     UnknownFormatError,
 )
 from datumaro.components.extractor import (
-    DEFAULT_SUBSET_NAME, CategoriesInfo, DatasetItem, Extractor, IExtractor,
+    DEFAULT_SUBSET_NAME, CategoriesInfo, DatasetItem, ErrorPolicy, Extractor, IExtractor,
     ItemTransform, Transform,
 )
 from datumaro.plugins.transforms import ProjectLabels
@@ -867,7 +867,8 @@ class Dataset(IDataset):
         return cls.import_from(path, format=DEFAULT_FORMAT, **kwargs)
 
     @classmethod
-    def import_from(cls, path: str, format: Optional[str] = None,
+    def import_from(cls, path: str, format: Optional[str] = None, *,
+            error_policy: Optional[ErrorPolicy] = None,
             env: Optional[Environment] = None, **kwargs) -> 'Dataset':
         from datumaro.components.config_model import Source
 
@@ -894,7 +895,8 @@ class Dataset(IDataset):
             if not isinstance(src_conf, Source):
                 src_conf = Source(src_conf)
             extractors.append(env.make_extractor(
-                src_conf.format, src_conf.url, **src_conf.options
+                src_conf.format, src_conf.url, import_context=error_policy,
+                **src_conf.options
             ))
 
         dataset = cls.from_extractors(*extractors, env=env)
