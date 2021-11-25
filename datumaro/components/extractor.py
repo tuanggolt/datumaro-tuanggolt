@@ -18,7 +18,7 @@ from datumaro.components.annotation import (
     Annotation, AnnotationType, Categories,
 )
 from datumaro.components.cli_plugin import CliPlugin
-from datumaro.components.errors import DatasetNotFoundError
+from datumaro.components.errors import DatasetNotFoundError, DatumaroError
 from datumaro.components.format_detection import (
     FormatDetectionConfidence, FormatDetectionContext,
 )
@@ -344,33 +344,37 @@ class ItemTransform(Transform):
                 yield item
 
 
+class FailedOperation(DatumaroError):
+    pass
+
 ErrorAction = NewType('ErrorAction', str)
 
 class ErrorPolicy:
     def report_error(self, error: Exception,
             supported_actions: Container[ErrorAction]) \
             -> Union[ErrorAction, NoReturn]:
-        self._add(error)
-
-        if self.is_critical(error):
-            self.fail()
+        supported_actions = set(supported_actions)
 
         assert supported_actions, \
             "If error reporting is supported, at " \
             "least one option to recover must be provided"
+
+        supported_actions.add('fail')
+
         action = self.get_action(error, supported_actions)
         assert action in supported_actions
-        return action
 
-    def _add(self, error) -> None:
-        pass
+        if action == 'fail':
+            self.fail(error)
+        else:
+            return action
 
     def get_action(self, error: Exception,
             supported_actions: Container[ErrorAction]) -> ErrorAction:
         return next(iter(supported_actions))
 
     def is_critical(self, error: Exception) -> bool:
-        return True
+        return False
 
-    def fail(self) -> NoReturn:
-        pass
+    def fail(self, error: Exception) -> NoReturn:
+        raise FailedOperation() from error

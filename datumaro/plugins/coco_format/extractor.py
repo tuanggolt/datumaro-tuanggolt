@@ -17,7 +17,8 @@ from datumaro.components.annotation import (
 )
 from datumaro.components.errors import DatasetImportError, UndefinedLabel
 from datumaro.components.extractor import (
-    DEFAULT_SUBSET_NAME, DatasetItem, ErrorPolicy, SourceExtractor,
+    DEFAULT_SUBSET_NAME, DatasetItem, ErrorPolicy, FailedOperation,
+    SourceExtractor,
 )
 from datumaro.components.media import Image
 from datumaro.util.image import lazy_image, load_image
@@ -187,6 +188,8 @@ class _CocoExtractor(SourceExtractor):
                 for a in loader.loadAnns(loader.getAnnIds(imgIds=img_id)):
                     try:
                         anns.extend(self._load_annotations(a, image_info))
+                    except FailedOperation:
+                        raise
                     except SkipAnnotation:
                         continue
                     except SkipItem:
@@ -204,6 +207,8 @@ class _CocoExtractor(SourceExtractor):
                     id=osp.splitext(image_info['file_name'])[0],
                     subset=self._subset, image=image, annotations=anns,
                     attributes={'id': img_id})
+            except FailedOperation:
+                raise
             except SkipItem:
                 continue
             except Exception as e:

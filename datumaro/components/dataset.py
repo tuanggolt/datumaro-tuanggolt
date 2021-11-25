@@ -24,8 +24,8 @@ from datumaro.components.errors import (
     UnknownFormatError,
 )
 from datumaro.components.extractor import (
-    DEFAULT_SUBSET_NAME, CategoriesInfo, DatasetItem, ErrorPolicy, Extractor, IExtractor,
-    ItemTransform, Transform,
+    DEFAULT_SUBSET_NAME, CategoriesInfo, DatasetItem, ErrorPolicy, Extractor,
+    IExtractor, ItemTransform, Transform,
 )
 from datumaro.plugins.transforms import ProjectLabels
 from datumaro.util import is_method_redefined
