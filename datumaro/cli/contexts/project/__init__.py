@@ -307,6 +307,8 @@ def build_filter_parser(parser_ctor=argparse.ArgumentParser):
             "build tree stage will be written (default: %(default)s)")
     parser.add_argument('--overwrite', action='store_true',
         help="Overwrite existing files in the save directory")
+    parser.add_argument('--save-media', type=str_to_bool, default=True,
+        help="Save images or just annotations (default: %(default)s)")
     parser.add_argument('-p', '--project', dest='project_dir',
         help="Directory of the project to operate on (default: current dir)")
     parser.set_defaults(command=filter_command)
@@ -377,7 +379,8 @@ def filter_command(args):
                 # We specify save_images here as a heuristic. It can probably
                 # be improved by checking if there are images in the dataset
                 # directory.
-                dataset.save(project.source_data_dir(target), save_images=True)
+                dataset.save(project.source_data_dir(target),
+                    save_images=args.save_media)
 
             log.info("Finished")
         else:
@@ -392,7 +395,7 @@ def filter_command(args):
             dst_dir = osp.abspath(dst_dir)
 
             dataset.filter(filter_expr, *filter_args)
-            dataset.save(dst_dir, save_images=True)
+            dataset.save(dst_dir, save_images=args.save_media)
 
             log.info("Results have been saved to '%s'" % dst_dir)
 
@@ -470,6 +473,8 @@ def build_transform_parser(parser_ctor=argparse.ArgumentParser):
             """)
     parser.add_argument('--overwrite', action='store_true',
         help="Overwrite existing files in the save directory")
+    parser.add_argument('--save-media', type=str_to_bool, default=True,
+        help="Save images or just annotations (default: %(default)s)")
     parser.add_argument('-p', '--project', dest='project_dir',
         help="Directory of the project to operate on (default: current dir)")
     parser.add_argument('--stage', type=str_to_bool, default=True,
@@ -563,7 +568,8 @@ def transform_command(args):
                 # We specify save_images here as a heuristic. It can probably
                 # be improved by checking if there are images in the dataset
                 # directory.
-                dataset.save(project.source_data_dir(target), save_images=True)
+                dataset.save(project.source_data_dir(target),
+                    save_images=args.save_media)
 
             log.info("Finished")
         else:
@@ -578,7 +584,7 @@ def transform_command(args):
             dst_dir = osp.abspath(dst_dir)
 
             dataset.transform(args.transform, **extra_args)
-            dataset.save(dst_dir, save_images=True)
+            dataset.save(dst_dir, save_images=args.save_media)
 
             log.info("Results have been saved to '%s'" % dst_dir)
 
