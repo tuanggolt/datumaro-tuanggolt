@@ -55,7 +55,7 @@ class Annotation:
     # - "visible" (bool)
     # Possible dataset attributes can be described in Categories.attributes.
     attributes: Dict[str, Any] = field(
-        factory=dict, converter=cast_with_default(dict))
+        factory=dict, validator=attr.validators.instance_of(dict))
 
     # Annotations can be grouped, which means they describe parts of a
     # single object. The value of 0 means there is no group.
@@ -135,7 +135,7 @@ class LabelCategories(Categories):
         self._indices = indices
 
     def add(self, name: str, parent: Optional[str] = None,
-            attributes: Optional[Dict[str, Any]] = None) -> int:
+            attributes: Optional[Set[str]] = None) -> int:
         assert name
         assert name not in self._indices, name
 
@@ -243,10 +243,10 @@ class Mask(Annotation):
 
     _image = field(converter=_ensure_bool_array)
 
-    label: Optional[int] = field(converter=optional_cast(int),
+    label: Optional[int] = field(validator=attr.validators.optional(attr.validators.instance_of(int)),
         default=None, kw_only=True)
     z_order: int = field(
-        default=0, converter=cast_with_default(int), kw_only=True)
+        default=0, validator=attr.validators.instance_of(int), kw_only=True)
 
     @property
     def image(self) -> BinaryMaskImage:
@@ -480,13 +480,13 @@ class CompiledMask:
 @attrs(slots=True, order=False)
 class _Shape(Annotation):
     # Flattened list of point coordinates
-    points: List[float] = field(converter=cast_with_default(list),
+    points: List[float] = field(validator=attr.validators.instance_of(list),
         factory=list)
 
-    label: Optional[int] = field(converter=optional_cast(int),
+    label: Optional[int] = field(validator=attr.validators.optional(attr.validators.instance_of(int)),
         default=None, kw_only=True)
 
-    z_order: int = field(default=0, converter=cast_with_default(int),
+    z_order: int = field(default=0, validator=attr.validators.instance_of(int),
         kw_only=True)
 
     def get_area(self):
@@ -522,7 +522,7 @@ class PolyLine(_Shape):
 class Cuboid3d(Annotation):
     _type = AnnotationType.cuboid_3d
     _points: List[float] = field(default=None)
-    label: Optional[int] = field(converter=optional_cast(int),
+    label: Optional[int] = field(validator=attr.validators.optional(attr.validators.instance_of(int)),
         default=None, kw_only=True)
 
     @_points.validator
