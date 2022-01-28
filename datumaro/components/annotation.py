@@ -15,7 +15,7 @@ from typing_extensions import Literal
 import attr
 import numpy as np
 
-from datumaro.util.attrs_util import not_empty, optional_cast_with_default
+from datumaro.util.attrs_util import not_empty, optional_cast, cast_with_default
 
 
 class AnnotationType(Enum):
@@ -55,7 +55,7 @@ class Annotation:
     # - "visible" (bool)
     # Possible dataset attributes can be described in Categories.attributes.
     attributes: Dict[str, Any] = field(
-        factory=dict, converter=optional_cast_with_default(dict))
+        factory=dict, converter=cast_with_default(dict))
 
     # Annotations can be grouped, which means they describe parts of a
     # single object. The value of 0 means there is no group.
@@ -82,18 +82,18 @@ class Categories:
     # Describes the list of possible annotation-type specific attributes
     # in a dataset.
     attributes: Set[str] = field(
-        factory=set, converter=optional_cast_with_default(set), eq=False)
+        factory=set, converter=cast_with_default(set), eq=False)
 
 @attrs(slots=True, order=False)
 class LabelCategories(Categories):
     @attrs(slots=True, order=False)
     class Category:
         name: str = field(converter=str, validator=not_empty)
-        parent: str = field(default='', converter=optional_cast_with_default(str))
+        parent: str = field(default='', converter=cast_with_default(str))
         attributes: Set[str] = field(
-            factory=set, converter=optional_cast_with_default(set))
+            factory=set, converter=cast_with_default(set))
 
-    items: List[str] = field(factory=list, converter=optional_cast_with_default(list))
+    items: List[str] = field(factory=list, converter=cast_with_default(list))
     _indices: Dict[str, int] = field(factory=dict, init=False, eq=False)
 
     @classmethod
@@ -193,7 +193,7 @@ class MaskCategories(Categories):
             include_background=include_background))
 
     colormap: Colormap = field(
-        factory=dict, converter=optional_cast_with_default(dict))
+        factory=dict, converter=cast_with_default(dict))
     _inverse_colormap: Optional[Dict[RgbColor, int]] = field(
         default=None, validator=attr.validators.optional(attr.validators.instance_of(dict)))
 
@@ -243,10 +243,10 @@ class Mask(Annotation):
 
     _image = field(converter=_ensure_bool_array)
 
-    label: Optional[int] = field(
-        converter=attr.converters.optional(int), default=None, kw_only=True)
+    label: Optional[int] = field(converter=optional_cast(int),
+        default=None, kw_only=True)
     z_order: int = field(
-        default=0, converter=optional_cast_with_default(int), kw_only=True)
+        default=0, converter=cast_with_default(int), kw_only=True)
 
     @property
     def image(self) -> BinaryMaskImage:
@@ -480,13 +480,13 @@ class CompiledMask:
 @attrs(slots=True, order=False)
 class _Shape(Annotation):
     # Flattened list of point coordinates
-    points: List[float] = field(converter=optional_cast_with_default(list),
+    points: List[float] = field(converter=cast_with_default(list),
         factory=list)
 
-    label: Optional[int] = field(converter=attr.converters.optional(int),
+    label: Optional[int] = field(converter=optional_cast(int),
         default=None, kw_only=True)
 
-    z_order: int = field(default=0, converter=optional_cast_with_default(int),
+    z_order: int = field(default=0, converter=cast_with_default(int),
         kw_only=True)
 
     def get_area(self):
@@ -522,7 +522,7 @@ class PolyLine(_Shape):
 class Cuboid3d(Annotation):
     _type = AnnotationType.cuboid_3d
     _points: List[float] = field(default=None)
-    label: Optional[int] = field(converter=attr.converters.optional(int),
+    label: Optional[int] = field(converter=optional_cast(int),
         default=None, kw_only=True)
 
     @_points.validator
@@ -650,14 +650,14 @@ class PointsCategories(Categories):
         # Names for specific points, e.g. eye, hose, mouth etc.
         # These labels are not required to be in LabelCategories
         labels: List[str] = field(
-            factory=list, converter=optional_cast_with_default(list))
+            factory=list, converter=cast_with_default(list))
 
         # Pairs of connected point indices
         joints: Set[Tuple[int, int]] = field(
-            factory=set, converter=optional_cast_with_default(set))
+            factory=set, converter=cast_with_default(set))
 
     items: Dict[int, Category] = field(
-        factory=dict, converter=optional_cast_with_default(dict))
+        factory=dict, converter=cast_with_default(dict))
 
     @classmethod
     def from_iterable(cls, iterable: Union[
