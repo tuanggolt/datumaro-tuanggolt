@@ -32,7 +32,7 @@ from datumaro.util.annotation_util import (
     OKS, approximate_line, bbox_iou, find_instances, max_bbox, mean_bbox,
     segment_iou,
 )
-from datumaro.util.attrs_util import ensure_cls, optional_cast_with_default
+from datumaro.util.attrs_util import ensure_type_kw, optional_cast_with_default
 
 
 def get_ann_type(anns, t):
@@ -184,7 +184,7 @@ class IntersectMerge(MergingStrategy):
             return result
         groups = attrib(converter=_groups_converter, factory=list)
         close_distance = attrib(converter=float, default=0.75)
-    conf = attrib(converter=ensure_cls(Conf), factory=Conf)
+    conf = attrib(converter=ensure_type_kw(Conf), factory=Conf)
 
     # Error trackers:
     errors = attrib(factory=list, init=False)

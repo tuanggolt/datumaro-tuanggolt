@@ -15,17 +15,31 @@ def ensure_type(t, c=None):
         return v
     return _converter
 
-def optional_cast_with_default(t, c=None, f=None):
-    f = f or t
-    # return attrs.converters.pipe(
+def ensure_type_kw(c):
+    def converter(arg):
+        if isinstance(arg, c):
+            return arg
+        else:
+            return c(**arg)
+    return converter
+
+def optional_cast_with_default(cls, *, conv=None, factory=None):
+    # Equivalent to:
+    # attrs.converters.pipe(
     #     attrs.converters.optional(ensure_type(t, c)),
     #     attrs.converters.default_if_none(factory=f),
     # )
+    #
+    # But provides better performance (mostly, due to less function calls)
+
+    factory = factory or cls
+    conv = conv or cls
+
     def _conv(v):
         if v is None:
-            v = f()
-        elif not isinstance(v, t):
-            v = c(v)
+            v = factory()
+        elif not isinstance(v, cls):
+            v = conv(v)
         return v
     return _conv
 
@@ -57,11 +71,3 @@ def default_if_none(conv):
                 value = conv(value)
         setattr(inst, attribute.name, value)
     return validator
-
-def ensure_cls(c):
-    def converter(arg):
-        if isinstance(arg, c):
-            return arg
-        else:
-            return c(**arg)
-    return converter
