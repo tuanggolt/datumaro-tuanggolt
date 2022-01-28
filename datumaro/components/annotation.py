@@ -250,9 +250,10 @@ class Mask(Annotation):
 
     @property
     def image(self) -> BinaryMaskImage:
-        if callable(self._image):
-            return self._image()
-        return self._image
+        image = self._image
+        if callable(image):
+            image = image()
+        return image
 
     def as_class_mask(self, label_id: Optional[int] = None) -> IndexMaskImage:
         """
@@ -305,11 +306,18 @@ class RleMask(Mask):
     An RLE-encoded instance segmentation mask.
     """
 
-    rle = field() # uses pycocotools RLE representation
+    _rle = field() # uses pycocotools RLE representation
 
     _image = field(init=False, default=attr.Factory(
         lambda self: self._lazy_decode(self.rle),
         takes_self=True))
+
+    @property
+    def rle(self):
+        rle = self._rle
+        if callable(rle):
+            rle = rle()
+        return rle
 
     @staticmethod
     def _lazy_decode(rle):
