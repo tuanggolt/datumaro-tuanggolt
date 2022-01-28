@@ -32,7 +32,7 @@ from datumaro.util.annotation_util import (
     OKS, approximate_line, bbox_iou, find_instances, max_bbox, mean_bbox,
     segment_iou,
 )
-from datumaro.util.attrs_util import default_if_none, ensure_cls
+from datumaro.util.attrs_util import ensure_cls, optional_cast_with_default
 
 
 def get_ann_type(anns, t):
@@ -1466,11 +1466,11 @@ def match_classes(a: CategoriesInfo, b: CategoriesInfo):
 class ExactComparator:
     match_images: bool = attrib(kw_only=True, default=False)
     ignored_fields = attrib(kw_only=True,
-        factory=set, validator=default_if_none(set))
+        factory=set, converter=optional_cast_with_default(set))
     ignored_attrs = attrib(kw_only=True,
-        factory=set, validator=default_if_none(set))
+        factory=set, converter=optional_cast_with_default(set))
     ignored_item_attrs = attrib(kw_only=True,
-        factory=set, validator=default_if_none(set))
+        factory=set, converter=optional_cast_with_default(set))
 
     _test: TestCase = attrib(init=False)
     errors: list = attrib(init=False)

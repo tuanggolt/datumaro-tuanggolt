@@ -6,6 +6,8 @@ import datumaro.components.errors as errors
 import datumaro.components.operations as ops
 import datumaro.components.project as project
 
+from . import cli, components, plugins, util
+
 from .components.annotation import *
 from .components.cli_plugin import CliPlugin
 from .components.converter import Converter

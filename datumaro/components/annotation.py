@@ -15,7 +15,7 @@ from typing_extensions import Literal
 import attr
 import numpy as np
 
-from datumaro.util.attrs_util import default_if_none, not_empty
+from datumaro.util.attrs_util import not_empty, optional_cast_with_default
 
 
 class AnnotationType(Enum):
@@ -43,7 +43,7 @@ class Annotation:
 
     # Describes an identifier of the annotation
     # Is not required to be unique within DatasetItem annotations or dataset
-    id: int = attrib(default=0, validator=default_if_none(int))
+    id: int = attrib(default=0, converter=attr.converters.default_if_none(0))
 
     # Arbitrary annotation-specific attributes. Typically, includes
     # metainfo and properties that are not covered by other fields.
@@ -55,11 +55,12 @@ class Annotation:
     # - "visible" (bool)
     # Possible dataset attributes can be described in Categories.attributes.
     attributes: Dict[str, Any] = attrib(
-        factory=dict, validator=default_if_none(dict))
+        factory=dict, converter=optional_cast_with_default(dict))
 
     # Annotations can be grouped, which means they describe parts of a
     # single object. The value of 0 means there is no group.
-    group: int = attrib(default=NO_GROUP, validator=default_if_none(int))
+    group: int = attrib(default=NO_GROUP,
+        converter=attr.converters.default_if_none(NO_GROUP))
 
     def __attrs_post_init__(self):
         assert isinstance(self.type, AnnotationType)
@@ -83,18 +84,18 @@ class Categories:
     # Describes the list of possible annotation-type specific attributes
     # in a dataset.
     attributes: Set[str] = attrib(
-        factory=set, validator=default_if_none(set), eq=False)
+        factory=set, converter=optional_cast_with_default(set), eq=False)
 
 @attrs(order=False)
 class LabelCategories(Categories):
     @attrs(order=False)
     class Category:
         name: str = attrib(converter=str, validator=not_empty)
-        parent: str = attrib(default='', validator=default_if_none(str))
+        parent: str = attrib(default='', converter=optional_cast_with_default(str))
         attributes: Set[str] = attrib(
-            factory=set, validator=default_if_none(set))
+            factory=set, converter=optional_cast_with_default(set))
 
-    items: List[str] = attrib(factory=list, validator=default_if_none(list))
+    items: List[str] = attrib(factory=list, converter=optional_cast_with_default(list))
     _indices: Dict[str, int] = attrib(factory=dict, init=False, eq=False)
 
     @classmethod
@@ -194,9 +195,9 @@ class MaskCategories(Categories):
             include_background=include_background))
 
     colormap: Colormap = attrib(
-        factory=dict, validator=default_if_none(dict))
+        factory=dict, converter=optional_cast_with_default(dict))
     _inverse_colormap: Optional[Dict[RgbColor, int]] = attrib(
-        default=None, validator=attr.validators.optional(dict))
+        default=None, validator=attr.validators.optional(attr.validators.instance_of(dict)))
 
     @property
     def inverse_colormap(self) -> Dict[RgbColor, int]:
@@ -240,7 +241,7 @@ class Mask(Annotation):
     label: Optional[int] = attrib(
         converter=attr.converters.optional(int), default=None, kw_only=True)
     z_order: int = attrib(
-        default=0, validator=default_if_none(int), kw_only=True)
+        default=0, converter=optional_cast_with_default(int), kw_only=True)
 
     def __attrs_post_init__(self):
         if isinstance(self._image, np.ndarray):
@@ -470,13 +471,13 @@ class CompiledMask:
 @attrs(order=False)
 class _Shape(Annotation):
     # Flattened list of point coordinates
-    points: List[float] = attrib(converter=lambda x:
-        [round(p, COORDINATE_ROUNDING_DIGITS) for p in x])
+    points: List[float] = attrib(converter=optional_cast_with_default(list),
+        factory=list)
 
     label: Optional[int] = attrib(converter=attr.converters.optional(int),
         default=None, kw_only=True)
 
-    z_order: int = attrib(default=0, validator=default_if_none(int),
+    z_order: int = attrib(default=0, converter=optional_cast_with_default(int),
         kw_only=True)
 
     def get_area(self):
@@ -521,7 +522,7 @@ class Cuboid3d(Annotation):
             points = [0, 0, 0,  0, 0, 0,  1, 1, 1]
         else:
             assert len(points) == 3 + 3 + 3, points
-            points = [round(p, COORDINATE_ROUNDING_DIGITS) for p in points]
+            points = np.round(points, COORDINATE_ROUNDING_DIGITS).tolist()
         self._points = points
 
     def __init__(self, position, rotation=None, scale=None, **kwargs):
@@ -543,8 +544,7 @@ class Cuboid3d(Annotation):
         # TODO: fix the issue with separate coordinate rounding:
         # self.position[0] = 12.345676
         # - the number assigned won't be rounded.
-        self.position[:] = \
-            [round(p, COORDINATE_ROUNDING_DIGITS) for p in value]
+        self.position[:] = np.round(value, COORDINATE_ROUNDING_DIGITS).tolist()
 
     @property
     def rotation(self):
@@ -553,8 +553,7 @@ class Cuboid3d(Annotation):
 
     @rotation.setter
     def _set_rotation(self, value):
-        self.rotation[:] = \
-            [round(p, COORDINATE_ROUNDING_DIGITS) for p in value]
+        self.rotation[:] = np.round(value, COORDINATE_ROUNDING_DIGITS).tolist()
 
     @property
     def scale(self):
@@ -563,8 +562,7 @@ class Cuboid3d(Annotation):
 
     @scale.setter
     def _set_scale(self, value):
-        self.scale[:] = \
-            [round(p, COORDINATE_ROUNDING_DIGITS) for p in value]
+        self.scale[:] = np.round(value, COORDINATE_ROUNDING_DIGITS).tolist()
 
 
 @attrs(order=False)
@@ -644,14 +642,14 @@ class PointsCategories(Categories):
         # Names for specific points, e.g. eye, hose, mouth etc.
         # These labels are not required to be in LabelCategories
         labels: List[str] = attrib(
-            factory=list, validator=default_if_none(list))
+            factory=list, converter=optional_cast_with_default(list))
 
         # Pairs of connected point indices
         joints: Set[Tuple[int, int]] = attrib(
-            factory=set, validator=default_if_none(set))
+            factory=set, converter=optional_cast_with_default(set))
 
     items: Dict[int, Category] = attrib(
-        factory=dict, validator=default_if_none(dict))
+        factory=dict, converter=optional_cast_with_default(dict))
 
     @classmethod
     def from_iterable(cls, iterable: Union[

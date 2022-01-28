@@ -23,7 +23,7 @@ from datumaro.components.format_detection import (
 )
 from datumaro.components.media import Image
 from datumaro.util import is_method_redefined
-from datumaro.util.attrs_util import default_if_none, not_empty
+from datumaro.util.attrs_util import not_empty, optional_cast_with_default
 
 # Re-export some names from .annotation for backwards compatibility.
 import datumaro.components.annotation # isort:skip
@@ -41,7 +41,7 @@ class DatasetItem:
     id: str = attrib(converter=lambda x: str(x).replace('\\', '/'),
         validator=not_empty)
     annotations: List[Annotation] = attrib(
-        factory=list, validator=default_if_none(list))
+        factory=list, converter=optional_cast_with_default(list))
     subset: str = attrib(converter=lambda v: v or DEFAULT_SUBSET_NAME,
         default=None)
 
@@ -77,7 +77,7 @@ class DatasetItem:
         assert pcd is None or isinstance(pcd, str), type(pcd)
 
     attributes: Dict[str, Any] = attrib(
-        factory=dict, validator=default_if_none(dict))
+        factory=dict, converter=optional_cast_with_default(dict))
 
     @property
     def has_image(self):
