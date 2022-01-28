@@ -62,11 +62,9 @@ class Annotation:
     group: int = attrib(default=NO_GROUP,
         converter=attr.converters.default_if_none(NO_GROUP))
 
-    def __attrs_post_init__(self):
-        assert isinstance(self.type, AnnotationType)
-
     @property
     def type(self) -> AnnotationType:
+        assert isinstance(self._type, AnnotationType)
         return self._type # must be set in subclasses
 
     def wrap(self, **kwargs):
