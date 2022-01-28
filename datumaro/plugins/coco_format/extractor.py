@@ -79,9 +79,8 @@ class _CocoExtractor(SourceExtractor):
             self._categories = {
                 AnnotationType.label: LabelCategories.from_iterable(labels)
             }
-            self._label_map = { (i + 1): label
-                for i, label in enumerate(labels)
-            }
+            # 0 is reserved for no class
+            self._label_map = { i + 1: i for i in range(len(labels)) }
             return
 
         self._categories = {}
@@ -229,6 +228,7 @@ class _CocoExtractor(SourceExtractor):
         return self._label_map[cat_id]
 
     def _load_annotations(self, ann, image_info=None):
+        return []
         parsed_annotations = []
 
         ann_id = ann['id']
