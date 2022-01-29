@@ -952,17 +952,11 @@ class Dataset(IDataset):
         else:
             raise UnknownFormatError(format)
 
-        # Try to split work evenly between workers
-        from multiprocessing import Pool, cpu_count
-        max_workers = min(len(detected_sources), cpu_count())
-        if 1 < max_workers:
-            with Pool(max_workers) as pool:
-                extractors = pool.map(cls._worker_cb,
-                    ((conf, env) for conf in detected_sources),
-                    chunksize=1)
-        else:
-            extractors = map(cls._worker_cb,
-                ((conf, env) for conf in detected_sources))
+        log.debug("Detected %s dataset sources: %s",
+            len(detected_sources), detected_sources)
+
+        extractors = map(cls._worker_cb,
+            ((conf, env) for conf in detected_sources))
 
         dataset = cls.from_extractors(*extractors, env=env)
         dataset._source_path = path
