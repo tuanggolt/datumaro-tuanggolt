@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 from typing import Any
-import attrs
+from attrs import define
 import orjson
 import logging as log
 import os.path as osp
@@ -151,11 +151,11 @@ class _CocoExtractor(SourceExtractor):
                 image=Image(
                     path=osp.join(self._images_dir, img_info['file_name']),
                     size=image_size),
+                annotations=[],
                 attributes={'id': img_id})
 
         for ann in json_data['annotations']:
-            img_id = ann['image_id']
-            items[img_id].annotations += \
+            items[ann['image_id']].annotations += \
                 self._load_annotations(ann, img_infos[ann['image_id']])
 
         return items
@@ -168,17 +168,18 @@ class _CocoExtractor(SourceExtractor):
             img_id = img_info['id']
             img_infos[img_id] = img_info
 
-            image_path = osp.join(self._images_dir, img_info['file_name'])
-            image_size = (img_info.get('height'), img_info.get('width'))
-            if image_size[0] and image_size[1]:
-                image_size = (image_size[0], image_size[1])
+            if img_info.get('height') and img_info.get('width'):
+                image_size = (img_info['height'], img_info['width'])
             else:
                 image_size = None
-            image = Image(path=image_path, size=image_size)
 
             items[img_id] = DatasetItem(
                 id=osp.splitext(img_info['file_name'])[0],
-                subset=self._subset, image=image,
+                subset=self._subset,
+                image=Image(
+                    path=osp.join(self._images_dir, img_info['file_name']),
+                    size=image_size),
+                annotations=[],
                 attributes={'id': img_id})
 
         for ann in json_data['annotations']:
@@ -204,7 +205,7 @@ class _CocoExtractor(SourceExtractor):
         mask = bgr2index(mask)
         return mask
 
-    @attrs.frozen
+    @define(on_setattr=False)
     class _lazy_merged_mask:
         segmentation: Any
         h: int
@@ -215,10 +216,9 @@ class _CocoExtractor(SourceExtractor):
             return mask_utils.merge(rles)
 
     def _get_label_id(self, ann):
-        cat_id = ann['category_id']
-        if not cat_id:
+        if not ann['category_id']:
             return None
-        return self._label_map[cat_id]
+        return self._label_map[ann['category_id']]
 
     def _load_annotations(self, ann, image_info=None):
         parsed_annotations = []
@@ -231,8 +231,9 @@ class _CocoExtractor(SourceExtractor):
 
         group = ann_id # make sure all tasks' annotations are merged
 
-        if self._task in [CocoTask.instances, CocoTask.person_keypoints,
-                CocoTask.stuff]:
+        if self._task is CocoTask.instances or \
+                self._task is CocoTask.person_keypoints or \
+                self._task is CocoTask.stuff:
             label_id = self._get_label_id(ann)
 
             attributes['is_crowd'] = bool(ann['iscrowd'])
@@ -287,7 +288,7 @@ class _CocoExtractor(SourceExtractor):
                     # compressed RLE
                     rle = segmentation
 
-                if rle is not None:
+                if rle:
                     parsed_annotations.append(RleMask(rle=rle, label=label_id,
                         id=ann_id, attributes=attributes, group=group
                     ))
