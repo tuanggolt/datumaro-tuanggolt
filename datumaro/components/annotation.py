@@ -582,9 +582,14 @@ class Cuboid3d(Annotation):
 class Polygon(_Shape):
     _type = AnnotationType.polygon
 
-    def __attrs_post_init__(self):
+    points: List[float] = field(factory=list)
+
+    @points.validator
+    def _points_validator(self, attribute, value):
+        assert isinstance(value, list)
+
         # keep the message on a single line to produce informative output
-        assert len(self.points) % 2 == 0 and 3 <= len(self.points) // 2, "Wrong polygon points: %s" % self.points
+        assert len(value) % 2 == 0 and 3 <= len(value) // 2, "Wrong polygon points: %s" % value
 
     def get_area(self):
         import pycocotools.mask as mask_utils
@@ -716,20 +721,26 @@ class Points(_Shape):
 
     _type = AnnotationType.points
 
+    points: List[float] = field(factory=list)
+    @points.validator
+    def _points_validator(self, attribute, value):
+        assert isinstance(value, list)
+        assert len(self.points) % 2 == 0, self.points
+
     visibility: List[bool] = field(default=None)
     @visibility.validator
     def _visibility_validator(self, attribute, visibility):
         if visibility is None:
-            visibility = [self.Visibility.visible] * (len(self.points) // 2)
-        else:
-            for i, v in enumerate(visibility):
-                if not isinstance(v, self.Visibility):
-                    visibility[i] = self.Visibility(v)
+            return
+
+        for i, v in enumerate(visibility):
+            if not isinstance(v, self.Visibility):
+                visibility[i] = self.Visibility(v)
         assert len(visibility) == len(self.points) // 2
-        self.visibility = visibility
 
     def __attrs_post_init__(self):
-        assert len(self.points) % 2 == 0, self.points
+        if self.visibility is None:
+            self.visibility = [self.Visibility.visible] * (len(self.points) // 2)
 
     def get_area(self):
         return 0
