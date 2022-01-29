@@ -285,7 +285,7 @@ class DatasetStorage(IDataset):
 
         self._flush_changes = False # Deferred flush indicator
 
-        self._length = 0 if source is None else None
+        self._length = len(self._storage) if self._source is None else None
 
     def is_cache_initialized(self) -> bool:
         return self._source is None and not self._transforms
