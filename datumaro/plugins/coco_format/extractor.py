@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-import json
+import orjson
 import logging as log
 import os.path as osp
 
@@ -127,8 +127,8 @@ class _CocoExtractor(SourceExtractor):
 
     @staticmethod
     def _load_json(path):
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        with open(path, 'rb') as f:
+            return orjson.loads(f.read())
 
     def _load_items(self, json_data):
         items = {}
