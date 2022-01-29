@@ -64,15 +64,15 @@ class DatasetItem:
         assert not attributes or isinstance(attributes, dict)
         self.attributes = attributes or {}
 
-        assert not (image and point_cloud), \
+        assert not (image is not None and point_cloud is not None), \
             "Can't set both image and point cloud info"
-        assert not (related_images and not point_cloud), \
+        assert not (related_images and point_cloud is not None), \
             "Related images require point cloud"
 
-        if callable(image) or isinstance(image, np.ndarray):
-            image = Image(data=image)
-        elif isinstance(image, str):
+        if isinstance(image, str):
             image = Image(path=image)
+        elif callable(image) or isinstance(image, np.ndarray):
+            image = Image(data=image)
         else:
             assert image is None or isinstance(image, Image), type(image)
         self.image = image

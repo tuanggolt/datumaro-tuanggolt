@@ -266,9 +266,8 @@ class _CocoExtractor(SourceExtractor):
                             ))
                     else:
                         # merge all parts into a single mask RLE
-                        img_h = image_info['height']
-                        img_w = image_info['width']
-                        rle = self._lazy_merged_mask(segmentation, img_h, img_w)
+                        rle = self._lazy_merged_mask(segmentation,
+                            image_info['height'], image_info['width'])
                 elif isinstance(segmentation['counts'], list):
                     # uncompressed RLE
                     img_h = image_info['height']
