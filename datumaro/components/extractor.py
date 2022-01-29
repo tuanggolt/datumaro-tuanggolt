@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Iterator, List, Optional
 import os
 import os.path as osp
 
-from attr import attrib, attrs
+from attrs import define
 import attr
 import numpy as np
 
@@ -36,29 +36,56 @@ for _name in [
 
 DEFAULT_SUBSET_NAME = 'default'
 
-@attrs(slots=True, order=False)
+@define
 class DatasetItem:
-    id: str = attrib(converter=lambda x: str(x).replace('\\', '/'),
-        validator=not_empty)
-    annotations: List[Annotation] = attrib(
-        factory=list, validator=attr.validators.instance_of(list))
-    subset: str = attrib(converter=lambda v: v or DEFAULT_SUBSET_NAME,
-        default=None)
+    id: str
+    annotations: List[Annotation]
+    subset: str
 
     # TODO: introduce "media" field with type info. Replace image and pcd.
-    image: Optional[Image] = attrib(default=None)
+    image: Optional[Image]
     # TODO: introduce pcd type like Image
-    point_cloud: Optional[str] = attrib(
-        converter=lambda x: str(x).replace('\\', '/') if x else None,
-        default=None)
-    related_images: List[Image] = attrib(default=None)
+    point_cloud: Optional[str]
+    related_images: List[Image]
 
-    def __attrs_post_init__(self):
-        if (self.has_image and self.has_point_cloud):
-            raise ValueError("Can't set both image and point cloud info")
-        if self.related_images and not self.has_point_cloud:
-            raise ValueError("Related images require point cloud")
+    attributes: Dict[str, Any]
 
+    def __init__(self, id, subset=None, image=None,
+            point_cloud=None, related_images=None,
+            annotations=None, attributes=None):
+        self.id = str(id).replace('\\', '/')
+        assert self.id
+
+        self.subset = subset or DEFAULT_SUBSET_NAME
+
+        assert not annotations or isinstance(annotations, list)
+        self.annotations = annotations or []
+
+        assert not attributes or isinstance(attributes, dict)
+        self.attributes = attributes or {}
+
+        assert not (image and point_cloud), \
+            "Can't set both image and point cloud info"
+        assert not (related_images and not point_cloud), \
+            "Related images require point cloud"
+
+        if callable(image) or isinstance(image, np.ndarray):
+            image = Image(data=image)
+        elif isinstance(image, str):
+            image = Image(path=image)
+        else:
+            assert image is None or isinstance(image, Image), type(image)
+        self.image = image
+
+        if point_cloud:
+            point_cloud = point_cloud.replace('\\', '/')
+        self.point_cloud = point_cloud
+
+        if related_images:
+            related_images = self._related_image_converter(related_images)
+        self.related_images = related_images
+
+    @staticmethod
     def _image_converter(image):
         if callable(image) or isinstance(image, np.ndarray):
             image = Image(data=image)
@@ -66,18 +93,10 @@ class DatasetItem:
             image = Image(path=image)
         assert image is None or isinstance(image, Image), type(image)
         return image
-    image.converter = _image_converter
 
+    @staticmethod
     def _related_image_converter(images):
         return list(map(__class__._image_converter, images or []))
-    related_images.converter = _related_image_converter
-
-    @point_cloud.validator
-    def _point_cloud_validator(self, attribute, pcd):
-        assert pcd is None or isinstance(pcd, str), type(pcd)
-
-    attributes: Dict[str, Any] = attrib(
-        factory=dict, validator=attr.validators.instance_of(dict))
 
     @property
     def has_image(self):

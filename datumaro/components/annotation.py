@@ -578,18 +578,30 @@ class Cuboid3d(Annotation):
         self.scale[:] = np.round(value, COORDINATE_ROUNDING_DIGITS).tolist()
 
 
-@attrs(slots=True, order=False)
+@attrs(slots=True, order=False, init=False)
 class Polygon(_Shape):
     _type = AnnotationType.polygon
 
-    points: List[float] = field(factory=list)
+    def __init__(self, points, *, label=None, z_order=None,
+            id=None, group=None, attributes=None):
+        # assert isinstance(points, list)
+        assert len(points) % 2 == 0 and 3 <= len(points) // 2, "Wrong polygon points: %s" % points
+        self.points = points
 
-    @points.validator
-    def _points_validator(self, attribute, value):
-        assert isinstance(value, list)
+        # assert not label or isinstance(label, int)
+        self.label = label
 
-        # keep the message on a single line to produce informative output
-        assert len(value) % 2 == 0 and 3 <= len(value) // 2, "Wrong polygon points: %s" % value
+        # assert not z_order or isinstance(z_order, int)
+        self.z_order = z_order or 0
+
+        # assert not id or isinstance(id, int)
+        self.id = id or 0
+
+        # assert not group or isinstance(group, int)
+        self.group = group or NO_GROUP
+
+        # assert not attributes or isinstance(attributes, dict)
+        self.attributes = attributes or {}
 
     def get_area(self):
         import pycocotools.mask as mask_utils
