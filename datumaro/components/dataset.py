@@ -17,6 +17,7 @@ import os
 import os.path as osp
 
 from datumaro.components.annotation import AnnotationType, LabelCategories
+from datumaro.components.config_model import Source
 from datumaro.components.dataset_filter import (
     XPathAnnotationsFilter, XPathDatasetFilter,
 )
@@ -929,8 +930,6 @@ class Dataset(IDataset):
     @classmethod
     def import_from(cls, path: str, format: Optional[str] = None, *,
             env: Optional[Environment] = None, **kwargs) -> Dataset:
-        from datumaro.components.config_model import Source
-
         if env is None:
             env = Environment()
 
@@ -949,18 +948,31 @@ class Dataset(IDataset):
         else:
             raise UnknownFormatError(format)
 
-        extractors = []
-        for src_conf in detected_sources:
-            if not isinstance(src_conf, Source):
-                src_conf = Source(src_conf)
-            extractors.append(env.make_extractor(
-                src_conf.format, src_conf.url, **src_conf.options
-            ))
+        # Try to split work evenly between workers
+        from multiprocessing import Pool, cpu_count
+        max_workers = min(len(detected_sources), cpu_count())
+        if 1 < max_workers:
+            with Pool(max_workers) as pool:
+                extractors = pool.map(cls._worker_cb,
+                    ((conf, env) for conf in detected_sources),
+                    chunksize=1)
+        else:
+            extractors = map(cls._worker_cb,
+                ((conf, env) for conf in detected_sources))
 
         dataset = cls.from_extractors(*extractors, env=env)
         dataset._source_path = path
         dataset._format = format
         return dataset
+
+    @staticmethod
+    def _worker_cb(args: Tuple[Dict, Environment]):
+        src_conf, env = args
+        if not isinstance(src_conf, Source):
+            src_conf = Source(src_conf)
+        return env.make_extractor(
+            src_conf.format, src_conf.url, **src_conf.options
+        )
 
     @staticmethod
     def detect(path: str, *,

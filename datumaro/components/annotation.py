@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from enum import Enum, auto
+from functools import partial
 from itertools import zip_longest
 from typing import (
     Any, Callable, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union,
@@ -15,7 +16,7 @@ from typing_extensions import Literal
 import attr
 import numpy as np
 
-from datumaro.util.attrs_util import not_empty, optional_cast, cast_with_default
+from datumaro.util.attrs_util import not_empty, cast_with_default
 
 
 class AnnotationType(Enum):
@@ -308,9 +309,11 @@ class RleMask(Mask):
 
     _rle = field() # uses pycocotools RLE representation
 
-    _image = field(init=False, default=attr.Factory(
-        lambda self: self._lazy_decode(self.rle),
-        takes_self=True))
+    _image = field(init=False, default=None)
+
+    @property
+    def image(self) -> BinaryMaskImage:
+        return self._decode(self.rle)
 
     @property
     def rle(self):
@@ -320,9 +323,9 @@ class RleMask(Mask):
         return rle
 
     @staticmethod
-    def _lazy_decode(rle):
+    def _decode(rle):
         from pycocotools import mask as mask_utils
-        return lambda: mask_utils.decode(rle)
+        return mask_utils.decode(rle)
 
     def get_area(self) -> int:
         from pycocotools import mask as mask_utils
@@ -475,7 +478,7 @@ class CompiledMask:
         return self.instance_mask == instance_id
 
     def lazy_extract(self, instance_id: int) -> Callable[[], IndexMaskImage]:
-        return lambda: self.extract(instance_id)
+        return partial(self.extract, instance_id)
 
 @attrs(slots=True, order=False)
 class _Shape(Annotation):
@@ -483,7 +486,8 @@ class _Shape(Annotation):
     points: List[float] = field(validator=attr.validators.instance_of(list),
         factory=list)
 
-    label: Optional[int] = field(validator=attr.validators.optional(attr.validators.instance_of(int)),
+    label: Optional[int] = field(validator=attr.validators.optional(
+            attr.validators.instance_of(int)),
         default=None, kw_only=True)
 
     z_order: int = field(default=0, validator=attr.validators.instance_of(int),

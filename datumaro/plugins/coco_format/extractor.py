@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
+from typing import Any
+import attrs
 import orjson
 import logging as log
 import os.path as osp
@@ -135,31 +137,26 @@ class _CocoExtractor(SourceExtractor):
 
         img_infos = {}
         for img_info in json_data['images']:
-            img_id = int(img_info['id'])
+            img_id = img_info['id']
             img_infos[img_id] = img_info
 
-            image_path = osp.join(self._images_dir, img_info['file_name'])
-            image_size = (img_info.get('height'), img_info.get('width'))
-            if all(image_size):
-                image_size = (int(image_size[0]), int(image_size[1]))
+            if img_info.get('height') and img_info.get('width'):
+                image_size = (img_info['height'], img_info['width'])
             else:
                 image_size = None
-            image = Image(path=image_path, size=image_size)
 
             items[img_id] = DatasetItem(
                 id=osp.splitext(img_info['file_name'])[0],
-                subset=self._subset, image=image,
+                subset=self._subset,
+                image=Image(
+                    path=osp.join(self._images_dir, img_info['file_name']),
+                    size=image_size),
                 attributes={'id': img_id})
 
-        img_id = None
         for ann in json_data['annotations']:
-            new_id = int(ann['image_id'])
-            if new_id != img_id:
-                item = items[new_id]
-                img_id = new_id
-
-            img_info = img_infos[img_id]
-            item.annotations.extend(self._load_annotations(ann, img_info))
+            img_id = ann['image_id']
+            items[img_id].annotations += \
+                self._load_annotations(ann, img_infos[ann['image_id']])
 
         return items
 
@@ -168,13 +165,13 @@ class _CocoExtractor(SourceExtractor):
 
         img_infos = {}
         for img_info in json_data['images']:
-            img_id = int(img_info['id'])
+            img_id = img_info['id']
             img_infos[img_id] = img_info
 
             image_path = osp.join(self._images_dir, img_info['file_name'])
             image_size = (img_info.get('height'), img_info.get('width'))
-            if all(image_size):
-                image_size = (int(image_size[0]), int(image_size[1]))
+            if image_size[0] and image_size[1]:
+                image_size = (image_size[0], image_size[1])
             else:
                 image_size = None
             image = Image(path=image_path, size=image_size)
@@ -184,16 +181,10 @@ class _CocoExtractor(SourceExtractor):
                 subset=self._subset, image=image,
                 attributes={'id': img_id})
 
-        img_id = None
         for ann in json_data['annotations']:
-            new_id = int(ann['image_id'])
-            if new_id != img_id:
-                item = items[new_id]
-                img_id = new_id
-
             # For the panoptic task, each annotation struct is a per-image
             # annotation rather than a per-object annotation.
-            anns = item.annotations
+            anns = items[ann['image_id']].annotations
             mask_path = osp.join(mask_dir, ann['file_name'])
             mask = lazy_image(mask_path, loader=self._load_pan_mask)
             mask = CompiledMask(instance_mask=mask)
@@ -213,13 +204,15 @@ class _CocoExtractor(SourceExtractor):
         mask = bgr2index(mask)
         return mask
 
-    @staticmethod
-    def _lazy_merged_mask(segmentation, h, w):
-        def _load_mask():
-            rles = mask_utils.frPyObjects(segmentation, h, w)
-            rle = mask_utils.merge(rles)
-            return rle
-        return _load_mask
+    @attrs.frozen
+    class _lazy_merged_mask:
+        segmentation: Any
+        h: int
+        w: int
+
+        def __call__(self):
+            rles = mask_utils.frPyObjects(self.segmentation, self.h, self.w)
+            return mask_utils.merge(rles)
 
     def _get_label_id(self, ann):
         cat_id = ann['category_id']
@@ -228,7 +221,6 @@ class _CocoExtractor(SourceExtractor):
         return self._label_map[cat_id]
 
     def _load_annotations(self, ann, image_info=None):
-        return []
         parsed_annotations = []
 
         ann_id = ann['id']
