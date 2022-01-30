@@ -11,12 +11,12 @@ from typing import (
     Any, Callable, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union,
 )
 
-from attr import field, attrs
+from attr import attrs, field
 from typing_extensions import Literal
 import attr
 import numpy as np
 
-from datumaro.util.attrs_util import not_empty, cast_with_default
+from datumaro.util.attrs_util import cast_with_default, not_empty
 
 
 class AnnotationType(Enum):

@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: MIT
 
 from typing import Any
-from attrs import define
-import orjson
 import logging as log
 import os.path as osp
 
+from attrs import define
+import orjson
 import pycocotools.mask as mask_utils
 
 from datumaro.components.annotation import (

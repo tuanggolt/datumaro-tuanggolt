@@ -32,7 +32,7 @@ from datumaro.util.annotation_util import (
     OKS, approximate_line, bbox_iou, find_instances, max_bbox, mean_bbox,
     segment_iou,
 )
-from datumaro.util.attrs_util import ensure_type_kw, cast_with_default
+from datumaro.util.attrs_util import cast_with_default, ensure_type_kw
 
 
 def get_ann_type(anns, t):

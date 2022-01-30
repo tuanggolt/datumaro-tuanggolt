@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: MIT
 
 from functools import partial
+from inspect import isclass
 from typing import (
     Callable, Dict, Generic, Iterable, Iterator, List, Optional, Type, TypeVar,
 )
 import glob
 import importlib
-from inspect import isclass
 import logging as log
 import os.path as osp
 
