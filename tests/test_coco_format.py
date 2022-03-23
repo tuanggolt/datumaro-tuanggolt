@@ -877,6 +877,30 @@ class CocoExtractorTests(TestCase):
         ],
     }
 
+    @mark_requirement(Requirements.DATUM_GENERAL_REQ)
+    def test_can_parse_json(self):
+        expected = Dataset.from_iterable(
+            [
+                DatasetItem(
+                    "a",
+                    media=Image(path="a.jpg", size=(5, 10)),
+                    annotations=[
+                        Bbox(2, 2, 3, 1, label=0, id=1, group=1, attributes={"is_crowd": False})
+                    ],
+                    attributes={"id": 5},
+                )
+            ],
+            categories=["test"],
+        )
+
+        with TestDir() as test_dir:
+            ann_path = osp.join(test_dir, "ann.json")
+            anns = deepcopy(self.ANNOTATION_JSON_TEMPLATE)
+            dump_json_file(ann_path, anns)
+
+            actual = Dataset.import_from(ann_path, "coco_instances")
+            compare_datasets(self, expected, actual, require_media=True)
+
     @mark_requirement(Requirements.DATUM_ERROR_REPORTING)
     def test_can_report_unexpected_file(self):
         with TestDir() as test_dir:
